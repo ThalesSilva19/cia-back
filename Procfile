@@ -1,0 +1,1 @@
+web: gunicorn -w 3 -k uvicorn.workers.UvicornWorker src.app:app --bind 0.0.0.0:$PORT
