@@ -158,6 +158,83 @@ class EmailSender:
 
         return self.send_email(subject, body, html_body)
 
+    def send_email_with_attachment(
+        self,
+        subject: str,
+        body: str,
+        recipient: Optional[str] = None,
+        attachment_content: bytes = None,
+        attachment_filename: str = None,
+        attachment_type: str = "application/octet-stream",
+    ) -> bool:
+        """
+        Envia um email com anexo.
+
+        Args:
+            subject (str): Assunto do email
+            body (str): Corpo do email em texto simples
+            recipient (str, optional): Email do destinatário. Se não fornecido, usa o padrão
+            attachment_content (bytes): Conteúdo do anexo
+            attachment_filename (str): Nome do arquivo anexo
+            attachment_type (str): Tipo MIME do anexo
+
+        Returns:
+            bool: True se o email foi enviado com sucesso, False caso contrário
+        """
+        try:
+            from email.mime.application import MIMEApplication
+            from email.mime.multipart import MIMEMultipart
+            from email.mime.text import MIMEText
+
+            # Usa o destinatário fornecido ou o padrão
+            to_email = recipient or self.recipient_email
+
+            # Cria a mensagem
+            msg = MIMEMultipart()
+            msg["Subject"] = subject
+            msg["From"] = self.sender_email
+            msg["To"] = to_email
+
+            # Adiciona o corpo do email
+            text_part = MIMEText(body, "plain", "utf-8")
+            msg.attach(text_part)
+
+            # Adiciona o anexo se fornecido
+            if attachment_content and attachment_filename:
+                # Cria o anexo (MIMEApplication detecta automaticamente o tipo)
+                attachment = MIMEApplication(attachment_content)
+                attachment.add_header(
+                    "Content-Disposition", f"attachment; filename={attachment_filename}"
+                )
+                msg.attach(attachment)
+
+            # Conecta ao servidor SMTP
+            server = smtplib.SMTP(self.smtp_server, self.smtp_port)
+            server.starttls()  # Habilita criptografia TLS
+
+            # Faz login
+            server.login(self.sender_email, self.sender_password)
+
+            # Envia o email
+            server.send_message(msg)
+            server.quit()
+
+            logger.info(f"Email com anexo enviado com sucesso para {to_email}")
+            return True
+
+        except smtplib.SMTPAuthenticationError:
+            logger.error("Erro de autenticação: Verifique o email e senha")
+            return False
+        except smtplib.SMTPRecipientsRefused:
+            logger.error("Destinatário recusado pelo servidor")
+            return False
+        except smtplib.SMTPServerDisconnected:
+            logger.error("Conexão com o servidor SMTP foi perdida")
+            return False
+        except Exception as e:
+            logger.error(f"Erro ao enviar email com anexo: {str(e)}")
+            return False
+
 
 # Instância global para uso fácil
 email_sender = EmailSender()

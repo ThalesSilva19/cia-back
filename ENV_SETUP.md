@@ -55,6 +55,12 @@ GOOGLE_REDIRECT_URI=urn:ietf:wg:oauth:2.0:oob
 GOOGLE_SCOPES=https://www.googleapis.com/auth/gmail.send
 
 # =============================================================================
+# CONFIGURAÇÕES DE FRONTEND
+# =============================================================================
+# URL base do frontend para links de recuperação de senha
+FRONTEND_URL=https://localhost:3000
+
+# =============================================================================
 # CONFIGURAÇÕES DE AMBIENTE
 # =============================================================================
 # Ambiente atual (development, staging, production)
