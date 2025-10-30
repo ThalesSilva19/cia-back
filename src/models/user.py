@@ -7,6 +7,7 @@ from src.models.base import Base
 
 class User(Base):
     __tablename__ = "user"
+    __table_args__ = {"schema": "public"}
 
     id = Column(Integer, primary_key=True, index=True)
     full_name = Column(String(255), nullable=False)

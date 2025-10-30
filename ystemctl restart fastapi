@@ -1,0 +1,15 @@
+[0;1;32m●[0m fastapi.service - FastAPI application
+     Loaded: loaded (]8;;file://srv1078256/etc/systemd/system/fastapi.service/etc/systemd/system/fastapi.service]8;;; [0;1;32menabled[0m; preset: [0;1;32menabled[0m)
+     Active: [0;1;32mactive (running)[0m since Tue 2025-10-21 23:53:07 UTC; 17min ago
+   Main PID: 1422 (uvicorn)
+      Tasks: 1 (limit: 9484)
+     Memory: 51.3M (peak: 51.5M)
+        CPU: 2.388s
+     CGroup: /system.slice/fastapi.service
+             └─[0;38;5;245m1422 /var/www/fastapi/.venv/bin/python3 /var/www/fastapi/.venv/bin/uvicorn src.app:app --host 0.0.0.0 --port 8000[0m
+
+Oct 21 23:53:07 srv1078256 systemd[1]: Started fastapi.service - FastAPI application.
+Oct 21 23:53:08 srv1078256 uvicorn[1422]: INFO:     Started server process [1422]
+Oct 21 23:53:08 srv1078256 uvicorn[1422]: INFO:     Waiting for application startup.
+Oct 21 23:53:08 srv1078256 uvicorn[1422]: INFO:     Application startup complete.
+Oct 21 23:53:08 srv1078256 uvicorn[1422]: INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)

@@ -10,7 +10,7 @@ class PasswordResetToken(Base):
     __tablename__ = "password_reset_token"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("user.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("public.user.id"), nullable=False)
     token = Column(String(255), unique=True, nullable=False, index=True)
     expires_at = Column(DateTime, nullable=False)
     used = Column(String(10), nullable=False, default="false")
