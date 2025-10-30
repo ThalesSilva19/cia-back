@@ -6,7 +6,7 @@ from src.database import get_db
 from src.models.seat import Seat
 from src.models.user import User
 from src.utils.auth import get_current_user
-from src.utils.qr_code import decode_qr_data, validate_qr_code
+from src.utils.qr_code import validate_qr_code
 
 router = APIRouter(prefix="/admin")
 
@@ -101,18 +101,20 @@ async def reprove_seat(
 
 @router.post("/validate-qr-code")
 async def validate_qr_code_entry(
-    qr_code_string: str,
+    hash_value: str,
+    seat_code: str,
     db: Session = Depends(get_db),
     authorization: str = Header(...),
 ):
     """
-    Valida um QR code na entrada do evento e marca o assento como usado.
+    Valida a entrada do evento e marca o assento como usado.
 
-    Recebe o QR code escaneado, valida o hash, verifica se o assento está 'occupied'
-    e o muda para 'used'.
+    Recebe o hash do QR code e o código do assento, valida o hash, verifica se o
+    assento está em status 'occupied' e muda para 'used'.
 
     Args:
-        qr_code_string: String contendo os dados do QR code (JSON ou dict string)
+        hash_value: Hash contido no QR code
+        seat_code: Código do assento
         db: Sessão do banco de dados
         authorization: Header de autorização
 
@@ -129,65 +131,50 @@ async def validate_qr_code_entry(
         )
 
     try:
-        # Decodifica os dados do QR code
-        qr_data = decode_qr_data(qr_code_string)
-        if not qr_data:
-            raise HTTPException(status_code=400, detail="Invalid QR code format.")
-
-        # Valida o hash do QR code
-        if not validate_qr_code(qr_data):
-            raise HTTPException(
-                status_code=400, detail="Invalid QR code - hash verification failed."
-            )
-
-        seat_code = qr_data.get("seat_code")
-        status_from_qr = qr_data.get("status")
-        is_half_price_from_qr = qr_data.get("is_half_price", False)
-
         # Verifica se o assento existe
         seat = db.query(Seat).filter(Seat.code == seat_code).with_for_update().first()
         if not seat:
             raise HTTPException(status_code=404, detail=f"Seat not found: {seat_code}")
 
-        # Verifica se o assento está no status correto (occupied)
+        if not seat.user_id:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Seat {seat_code} does not have an associated user.",
+            )
+
+        # Verifica se o assento está em status 'occupied'
         if seat.status != "occupied":
             raise HTTPException(
                 status_code=400,
-                detail=f"Cannot validate seat with status '{seat.status}'. Expected 'occupied'.",
+                detail=f"Seat {seat_code} must be in 'occupied' status to be validated.",
             )
 
-        # Verifica se o status do QR code é 'occupied'
-        if status_from_qr != "occupied":
-            raise HTTPException(
-                status_code=400,
-                detail=f"QR code status is '{status_from_qr}'. Expected 'occupied'.",
+        # Valida o QR code e atualiza o status para "used"
+        try:
+            validation_result = validate_qr_code(
+                hash=hash_value,
+                seat_code=seat_code,
+                is_half_price=bool(seat.is_half_price),
+                status="occupied",
+                user_id=seat.user_id,
+                db=db,
             )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
-        # Verifica se o tipo de ingresso do QR code corresponde ao do banco
-        if seat.is_half_price != is_half_price_from_qr:
-            raise HTTPException(
-                status_code=400,
-                detail=f"QR code ticket type mismatch. Expected '{'Meia' if seat.is_half_price else 'Inteira'}', got '{'Meia' if is_half_price_from_qr else 'Inteira'}'.",
-            )
-
-        # Atualiza o assento para 'used'
-        seat.status = "used"
-        db.commit()
-
-        # Busca informações do usuário se existir
+        # Busca informações do usuário
         user_info = None
-        if seat.user_id:
-            db_user = db.query(User).filter(User.id == seat.user_id).first()
-            if db_user:
-                user_info = {"name": db_user.full_name, "email": db_user.email}
+        db_user = db.query(User).filter(User.id == seat.user_id).first()
+        if db_user:
+            user_info = {"name": db_user.full_name, "email": db_user.email}
 
         return {
             "message": "QR code validated successfully.",
-            "seat_code": seat.code,
-            "previous_status": "occupied",
-            "new_status": "used",
+            "seat_code": validation_result["seat_code"],
+            "previous_status": validation_result["previous_status"],
+            "new_status": validation_result["new_status"],
             "user_info": user_info,
-            "is_half_price": seat.is_half_price,
+            "is_half_price": validation_result["is_half_price"],
         }
 
     except HTTPException:

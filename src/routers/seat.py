@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from src.database import get_db
 from src.models.seat import Seat
 from src.models.transaction import Transaction
+from src.models.user import User
 from src.routers.requests.seat import (
     SeatPreReserveRequest,
     SeatReserveRequest,
@@ -44,11 +45,20 @@ async def get_user_seats(
 ):
     user = get_current_user(authorization)
     seats = db.query(Seat).filter(Seat.user_id == user["id"]).all()
+
+    # Busca o nome do comprador para usar nos QR codes
+    buyer_name = user.get("full_name", "")
+
     return [
         SeatResponse(
             code=seat.code,
             status=seat.status,
-            qr_code=generate_seat_qr_code(seat.code, seat.status, seat.is_half_price)
+            qr_code=generate_seat_qr_code(
+                seat_code=seat.code,
+                status=seat.status,
+                is_half_price=seat.is_half_price,
+                buyer_name=buyer_name,
+            )
             if seat.status == "occupied"
             else None,
         )
@@ -336,3 +346,32 @@ async def pre_reserve_seats(
         raise HTTPException(
             status_code=500, detail=f"Database error during pre-reservation: {str(e)}"
         )
+
+
+@router.get("/info/{seat_code}")
+async def get_seat_info(
+    seat_code: str,
+    db: Session = Depends(get_db),
+    authorization: str = Header(...),
+):
+    _ = get_current_user(authorization)
+
+    try:
+        seat = db.query(Seat).filter(Seat.code == seat_code).first()
+        if not seat:
+            raise HTTPException(status_code=404, detail=f"Seat not found: {seat_code}")
+
+        user_name = None
+        if seat.user_id:
+            db_user = db.query(User).filter(User.id == seat.user_id).first()
+            if db_user:
+                user_name = db_user.full_name
+
+        return {
+            "is_half_price": bool(seat.is_half_price),
+            "user_name": user_name,
+            "status_code": seat.status,
+            "seat_code": seat.code,
+        }
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
