@@ -15,6 +15,7 @@ from src.routers.responses.seat import SeatResponse
 from src.settings import settings
 from src.utils.auth import get_current_user
 from src.utils.email import EmailSender
+from src.utils.qr_code import generate_seat_qr_code
 
 router = APIRouter(prefix="/seats")
 
@@ -26,17 +27,33 @@ async def get_seats(
 ):
     _ = get_current_user(authorization)
     seats = db.query(Seat).all()
-    return [SeatResponse(code=seat.code, status=seat.status) for seat in seats]
+    return [
+        SeatResponse(
+            code=seat.code,
+            status=seat.status,
+            qr_code=None,  # QR codes só para assentos do usuário em /seats/user
+        )
+        for seat in seats
+    ]
 
 
-@router.get("/user")
+@router.get("/user", response_model=list[SeatResponse])
 async def get_user_seats(
     db: Session = Depends(get_db),
     authorization: str = Header(...),
 ):
     user = get_current_user(authorization)
     seats = db.query(Seat).filter(Seat.user_id == user["id"]).all()
-    return seats
+    return [
+        SeatResponse(
+            code=seat.code,
+            status=seat.status,
+            qr_code=generate_seat_qr_code(seat.code, seat.status, seat.is_half_price)
+            if seat.status == "occupied"
+            else None,
+        )
+        for seat in seats
+    ]
 
 
 @router.get("/user/pre-reserved", response_model=list[SeatResponse])
@@ -54,7 +71,12 @@ async def get_user_pre_reserved_seats(
         .all()
     )
     return [
-        SeatResponse(code=seat.code, status=seat.status) for seat in pre_reserved_seats
+        SeatResponse(
+            code=seat.code,
+            status=seat.status,
+            qr_code=None,  # Não gera QR para pre-reserved
+        )
+        for seat in pre_reserved_seats
     ]
 
 
