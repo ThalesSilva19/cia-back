@@ -25,7 +25,7 @@ async def get_pending_seats(
     reserved_seats = (
         db.query(User.full_name, Seat.code, Seat.is_half_price, Seat.status)
         .join(User, User.id == Seat.user_id)
-        .filter(Seat.status.in_(["reserved", "occupied", "used"]))
+        .filter(Seat.status.in_(["reserved"]))
         .all()
     )
 
